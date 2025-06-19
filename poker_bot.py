@@ -298,7 +298,7 @@ def button_handler(update: Update, context: CallbackContext) -> int:
             "- Excel file (.xlsx)\n"
             "- Must include 'Member Statistics' sheet\n"
             "- Player usernames in column J\n"
-            "- Hands played in column EQ\n\n"
+            "- Hands played in column EV\n\n"
             "*Streak Rules:*\n"
             "- Players must play 100+ hands per day\n"
             "- Missing a day resets streak to 0\n"

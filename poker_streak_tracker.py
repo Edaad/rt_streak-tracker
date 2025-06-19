@@ -112,10 +112,12 @@ class PokerStreakTracker:
 
         Specifically:
         - Sheet name: "Member Statistics"
-        - Column J (index 10): Player usernames starting from row 7
-        - Column ER (index 148): Hands played starting from row 7
+        - Column J (index 10): Player usernames 
+        - Column EV: Hands played
         """
         try:
+            from openpyxl.utils import column_index_from_string
+            
             # Load the workbook
             workbook = openpyxl.load_workbook(file_path, data_only=True)
 
@@ -128,6 +130,14 @@ class PokerStreakTracker:
 
             sheet = workbook["Member Statistics"]
 
+            # Define column letters
+            username_column = "J"
+            hands_column = "EV"
+            
+            # Get column indices
+            username_col_idx = column_index_from_string(username_column)
+            hands_col_idx = column_index_from_string(hands_column)
+
             # Extract player data
             player_data = []
 
@@ -136,11 +146,11 @@ class PokerStreakTracker:
 
             while True:
                 username_cell = sheet.cell(
-                    row=row_index, column=10
-                )  # Column J is index 10
+                    row=row_index, column=username_col_idx
+                )  # Column J
                 hands_cell = sheet.cell(
-                    row=row_index, column=148
-                )  # Column ER is index 148
+                    row=row_index, column=hands_col_idx
+                )  # Column EV
 
                 # Break if we've reached the end of data
                 if username_cell.value is None:
