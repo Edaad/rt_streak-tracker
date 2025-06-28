@@ -475,18 +475,19 @@ def lookup_player(update: Update, context: CallbackContext) -> int:
     if player_data is None:
         update.message.reply_text(f"⚠️ Player '{username}' not found in the database.")
     else:
-        # Format the player data
+        # Format the player data WITHOUT Markdown to avoid parsing errors
         reply = (
-            f"📊 *PLAYER STATUS*\n"
+            f"📊 PLAYER STATUS\n"
             f"========================\n"
-            f"*Username:* {player_data['Username']}\n"
-            f"*Status:* {player_data['LastUpdate']}\n"
-            f"*Last updated:* {player_data['UpdateDate']}\n"
-            f"*Current streak:* {player_data['CurrentStreak']}\n"
-            f"*Highest streak:* {player_data['HighestStreak']}\n"
+            f"Username: {player_data['Username']}\n"
+            f"Status: {player_data['LastUpdate']}\n"
+            f"Last updated: {player_data['UpdateDate']}\n"
+            f"Current streak: {player_data['CurrentStreak']}\n"
+            f"Highest streak: {player_data['HighestStreak']}\n"
             f"========================"
         )
-        update.message.reply_text(reply, parse_mode="Markdown")
+        # Remove parse_mode="Markdown" to avoid parsing errors
+        update.message.reply_text(reply)
 
     return ConversationHandler.END
 
