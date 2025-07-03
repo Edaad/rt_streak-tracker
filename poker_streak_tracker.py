@@ -4,6 +4,8 @@ import argparse
 from datetime import datetime
 import random
 import openpyxl
+from referral_system import ReferralSystem
+import config
 
 
 class PokerStreakTracker:
@@ -112,12 +114,12 @@ class PokerStreakTracker:
 
         Specifically:
         - Sheet name: "Member Statistics"
-        - Column J (index 10): Player usernames 
+        - Column J (index 10): Player usernames
         - Column EV: Hands played
         """
         try:
             from openpyxl.utils import column_index_from_string
-            
+
             # Load the workbook
             workbook = openpyxl.load_workbook(file_path, data_only=True)
 
@@ -133,7 +135,7 @@ class PokerStreakTracker:
             # Define column letters
             username_column = "J"
             hands_column = "EV"
-            
+
             # Get column indices
             username_col_idx = column_index_from_string(username_column)
             hands_col_idx = column_index_from_string(hands_column)
@@ -622,6 +624,35 @@ class PokerStreakTracker:
                     )
                 print("==============================\n")
 
+            # Process referrals
+            referral_bonuses = []
+            try:
+                # Create a dictionary of player -> hands for referral processing
+                daily_players_hands = {
+                    player["Username"]: player["Hands"] for player in player_data
+                }
+
+                # Initialize referral system
+                referral_system = ReferralSystem(
+                    "credentials.json", config.MASTER_SHEET_ID
+                )
+
+                # Update referral hands and check for milestones
+                referral_bonuses = referral_system.update_hands_and_check_milestone(
+                    daily_players_hands
+                )
+
+            except Exception as e:
+                print(f"Warning: Error processing referrals: {e}")
+
+            # Print referral bonuses if any
+            if referral_bonuses:
+                print("🎉 REFERRAL BONUSES TODAY 🎉")
+                print("==============================")
+                for bonus_message in referral_bonuses:
+                    print(bonus_message)
+                print("==============================\n")
+
             # Print summary
             print("--- PROCESSING COMPLETE ---")
             print(f"Total players processed: {len(player_data) - len(error_players)}")
@@ -631,6 +662,7 @@ class PokerStreakTracker:
                 f"Players that lost streaks: {len(significant_lost_streaks) + len(minor_lost_streaks)}"
             )
             print(f"Wheel winners: {len(wheel_winners)}")
+            print(f"Referral bonuses: {len(referral_bonuses)}")
             print(f"History records updated: {history_updates}")
 
             # Only print notable lost streaks (4+ days)

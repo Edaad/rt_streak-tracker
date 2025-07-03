@@ -29,11 +29,18 @@ from oauth2client.service_account import ServiceAccountCredentials
 # Import PokerStreakTracker class
 from poker_streak_tracker import PokerStreakTracker
 
+# Import ReferralSystem
+from referral_system import ReferralSystem
+
 # Constants for conversation states
 CHOOSING, PROCESSING_DATA, LOOKING_UP_PLAYER, REVIVING_STREAK, REVIVING_STREAK_VALUE = (
     range(5)
 )
 CONFIRMING_REVIVAL = 5
+
+# Referral conversation states
+REFERRAL_REFERRED, REFERRAL_HANDS, REFERRAL_REFERRER = range(6, 9)
+
 ADMIN_USERS = config.ADMIN_USERS
 
 # Set up logging
@@ -215,6 +222,7 @@ def start(update: Update, context: CallbackContext) -> None:
         "👋 Welcome to the Poker Streak Tracker Bot!\n\n"
         "This bot tracks player streaks for poker games, awarding wheel spins at 7, 14, 21, etc. day milestones.\n\n"
         "Use /lookup to check your streak status.\n"
+        "Admins can use /referral to add referrals.\n"
         "You can use /cancel at any time to cancel the current operation."
     )
 
@@ -241,7 +249,8 @@ def wheel_command(update: Update, context: CallbackContext) -> int:
             )
         ],
         [InlineKeyboardButton("4. Revive a player's streak", callback_data="revive")],
-        [InlineKeyboardButton("5. Exit", callback_data="exit")],
+        [InlineKeyboardButton("5. Manage referrals", callback_data="referral")],
+        [InlineKeyboardButton("6. Exit", callback_data="exit")],
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -262,6 +271,104 @@ def lookup_command(update: Update, context: CallbackContext) -> int:
         reply_markup=reply_markup,
     )
     return LOOKING_UP_PLAYER
+
+
+def referral_command(update: Update, context: CallbackContext) -> int:
+    """Handle the /referral command for admin users only."""
+    # Check if user is admin
+    if update.effective_user.username not in ADMIN_USERS:
+        update.message.reply_text("❌ You don't have permission to use this command.")
+        return ConversationHandler.END
+
+    keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text(
+        "Enter the username of the player who was referred:\n\n"
+        "Type /cancel or use the Cancel button to exit.",
+        reply_markup=reply_markup,
+    )
+    return REFERRAL_REFERRED
+
+
+def add_referral_referred(update: Update, context: CallbackContext) -> int:
+    """Handle the referred player username input."""
+    referred_player = update.message.text.strip()
+
+    if not referred_player:
+        update.message.reply_text("Please enter a valid username.")
+        return REFERRAL_REFERRED
+
+    # Store the referred player
+    context.user_data["referred_player"] = referred_player
+
+    update.message.reply_text(
+        f"Enter how many hands {referred_player} has played so far (enter 0 if starting fresh):"
+    )
+    return REFERRAL_HANDS
+
+
+def add_referral_hands(update: Update, context: CallbackContext) -> int:
+    """Handle the hands played input."""
+    try:
+        hands_played = int(update.message.text.strip())
+        if hands_played < 0:
+            raise ValueError("Hands cannot be negative")
+    except ValueError:
+        update.message.reply_text("Please enter a valid number (0 or greater).")
+        return REFERRAL_HANDS
+
+    # Store the hands played
+    context.user_data["hands_played"] = hands_played
+    referred_player = context.user_data["referred_player"]
+
+    update.message.reply_text(
+        f"Enter the username of the player who referred {referred_player}:"
+    )
+    return REFERRAL_REFERRER
+
+
+def add_referral_referrer(update: Update, context: CallbackContext) -> int:
+    """Handle the referrer username input and save the referral."""
+    referrer_player = update.message.text.strip()
+
+    if not referrer_player:
+        update.message.reply_text("Please enter a valid username.")
+        return REFERRAL_REFERRER
+
+    # Get stored data
+    referred_player = context.user_data["referred_player"]
+    hands_played = context.user_data["hands_played"]
+
+    # Check if player is referring themselves
+    if referred_player.lower() == referrer_player.lower():
+        update.message.reply_text(
+            "❌ A player cannot refer themselves. Please try again."
+        )
+        return REFERRAL_REFERRER
+
+    try:
+        # Initialize referral system
+        referral_system = ReferralSystem("credentials.json", config.MASTER_SHEET_ID)
+
+        # Add the referral
+        success, message = referral_system.add_referral(
+            referred_player, hands_played, referrer_player
+        )
+
+        update.message.reply_text(message)
+
+        # Clear user data
+        context.user_data.clear()
+
+        return ConversationHandler.END
+
+    except Exception as e:
+        logger.error(f"Error adding referral: {e}")
+        update.message.reply_text(
+            "❌ An error occurred while adding the referral. Please try again later."
+        )
+        context.user_data.clear()
+        return ConversationHandler.END
 
 
 def button_handler(update: Update, context: CallbackContext) -> int:
@@ -325,6 +432,16 @@ def button_handler(update: Update, context: CallbackContext) -> int:
             reply_markup=reply_markup,
         )
         return REVIVING_STREAK
+
+    elif query.data == "referral":
+        keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            "Enter the username of the player who was referred:\n\n"
+            "Type /cancel or use the Cancel button to exit.",
+            reply_markup=reply_markup,
+        )
+        return REFERRAL_REFERRED
 
     elif query.data == "exit" or query.data == "cancel":
         query.edit_message_text(
@@ -723,10 +840,31 @@ def main():
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
+    # Define referral conversation handler (admin only)
+    referral_handler = ConversationHandler(
+        entry_points=[CommandHandler("referral", referral_command)],
+        states={
+            REFERRAL_REFERRED: [
+                MessageHandler(Filters.text & ~Filters.command, add_referral_referred),
+                CallbackQueryHandler(add_referral_referred),  # To handle cancel button
+            ],
+            REFERRAL_HANDS: [
+                MessageHandler(Filters.text & ~Filters.command, add_referral_hands),
+                CallbackQueryHandler(add_referral_hands),  # To handle cancel button
+            ],
+            REFERRAL_REFERRER: [
+                MessageHandler(Filters.text & ~Filters.command, add_referral_referrer),
+                CallbackQueryHandler(add_referral_referrer),  # To handle cancel button
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
     # Add handlers
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(wheel_handler)
     dp.add_handler(lookup_handler)
+    dp.add_handler(referral_handler)
 
     # Add error handler
     dp.add_error_handler(error_handler)
