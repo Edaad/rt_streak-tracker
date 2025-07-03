@@ -632,15 +632,18 @@ class PokerStreakTracker:
                     player["Username"]: player["Hands"] for player in player_data
                 }
 
-                # Initialize referral system
-                referral_system = ReferralSystem(
-                    "credentials.json", config.MASTER_SHEET_ID
-                )
+                # Initialize referral system - use config which handles both local and Heroku
+                if config.GOOGLE_CREDS_JSON:
+                    referral_system = ReferralSystem(
+                        config.GOOGLE_CREDS_JSON, config.MASTER_SHEET_ID
+                    )
 
-                # Update referral hands and check for milestones
-                referral_bonuses = referral_system.update_hands_and_check_milestone(
-                    daily_players_hands
-                )
+                    # Update referral hands and check for milestones
+                    referral_bonuses = referral_system.update_hands_and_check_milestone(
+                        daily_players_hands
+                    )
+                else:
+                    print("Warning: Google credentials not configured, skipping referral processing")
 
             except Exception as e:
                 print(f"Warning: Error processing referrals: {e}")

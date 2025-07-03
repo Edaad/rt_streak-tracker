@@ -6,9 +6,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 
 class ReferralSystem:
-    def __init__(self, credentials_file, master_sheet_id):
+    def __init__(self, credentials, master_sheet_id):
         """Initialize the referral system with Google Sheets integration."""
-        self.credentials_file = credentials_file
         self.master_sheet_id = master_sheet_id
         self.referrals_sheet_name = "Referrals"
 
@@ -17,9 +16,15 @@ class ReferralSystem:
             "https://spreadsheets.google.com/feeds",
             "https://www.googleapis.com/auth/drive",
         ]
-        creds = ServiceAccountCredentials.from_json_keyfile_name(
-            credentials_file, scope
-        )
+        
+        # Handle both credential file path (local) and credential dict (Heroku)
+        if isinstance(credentials, str):
+            # Local development - credentials is a file path
+            creds = ServiceAccountCredentials.from_json_keyfile_name(credentials, scope)
+        else:
+            # Heroku deployment - credentials is a dict
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials, scope)
+            
         self.client = gspread.authorize(creds)
         self.sheet = self.client.open_by_key(master_sheet_id)
 
