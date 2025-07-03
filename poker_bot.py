@@ -349,7 +349,9 @@ def add_referral_referrer(update: Update, context: CallbackContext) -> int:
     try:
         # Initialize referral system - use config which handles both local and Heroku
         if config.GOOGLE_CREDS_JSON:
-            referral_system = ReferralSystem(config.GOOGLE_CREDS_JSON, config.MASTER_SHEET_ID)
+            referral_system = ReferralSystem(
+                config.GOOGLE_CREDS_JSON, config.MASTER_SHEET_ID
+            )
         else:
             update.message.reply_text("❌ Google credentials not configured properly.")
             context.user_data.clear()

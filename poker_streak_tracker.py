@@ -643,7 +643,9 @@ class PokerStreakTracker:
                         daily_players_hands
                     )
                 else:
-                    print("Warning: Google credentials not configured, skipping referral processing")
+                    print(
+                        "Warning: Google credentials not configured, skipping referral processing"
+                    )
 
             except Exception as e:
                 print(f"Warning: Error processing referrals: {e}")

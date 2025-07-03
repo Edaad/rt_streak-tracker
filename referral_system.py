@@ -16,7 +16,7 @@ class ReferralSystem:
             "https://spreadsheets.google.com/feeds",
             "https://www.googleapis.com/auth/drive",
         ]
-        
+
         # Handle both credential file path (local) and credential dict (Heroku)
         if isinstance(credentials, str):
             # Local development - credentials is a file path
@@ -24,7 +24,7 @@ class ReferralSystem:
         else:
             # Heroku deployment - credentials is a dict
             creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials, scope)
-            
+
         self.client = gspread.authorize(creds)
         self.sheet = self.client.open_by_key(master_sheet_id)
 
