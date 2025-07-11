@@ -140,3 +140,29 @@ class ReferralSystem:
             self.save_referrals_data(df)
 
         return milestone_messages
+
+    def lookup_referrals(self, referrer_username):
+        """Look up all referrals for a given referrer."""
+        # Load referrals data
+        df = self.load_referrals_data()
+
+        if df.empty:
+            return []
+
+        # Filter referrals for this referrer
+        referrer_referrals = df[df["ReferrerPlayer"] == referrer_username]
+
+        if referrer_referrals.empty:
+            return []
+
+        # Convert to list of dictionaries with bonus status
+        referrals = []
+        for _, row in referrer_referrals.iterrows():
+            hands_played = int(row["HandsPlayed"])
+            referrals.append({
+                "referred_player": row["ReferredPlayer"],
+                "hands_played": hands_played,
+                "bonus_received": hands_played >= 250
+            })
+
+        return referrals
