@@ -226,7 +226,6 @@ def start(update: Update, context: CallbackContext) -> None:
         "This bot tracks player streaks for poker games, awarding wheel spins at 7, 14, 21, etc. day milestones.\n\n"
         "Use /lookup to check your streak status.\n"
         "Use /lookuprefs to see players you referred.\n"
-        "Admins can use /referral to add referrals.\n"
         "You can use /cancel at any time to cancel the current operation."
     )
 
@@ -433,18 +432,18 @@ def lookup_refs_username(update: Update, context: CallbackContext) -> int:
             # Format the response
             response = f"📋 REFERRALS FOR {username.upper()}\n"
             response += "=" * 30 + "\n\n"
-            
+
             for i, referral in enumerate(referrals, 1):
                 response += f"{i}. {referral['referred_player']}\n"
                 response += f"   Hands: {referral['hands_played']}\n"
-                
-                if referral['bonus_received']:
-                    response += "   Status: ✅ Bonus received (250+ hands)\n"
+
+                if referral["bonus_received"]:
+                    response += "   Status: 🎁 Bonus received \n"
                 else:
-                    remaining = max(0, 250 - referral['hands_played'])
+                    remaining = max(0, 250 - referral["hands_played"])
                     response += f"   Status: 🔄 {remaining} hands to bonus\n"
                 response += "\n"
-            
+
             response += "=" * 30
 
             update.message.reply_text(response)
