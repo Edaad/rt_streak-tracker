@@ -382,6 +382,83 @@ def add_referral_referrer(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 
+def lookuprefs_command(update: Update, context: CallbackContext) -> int:
+    """Handle the /lookuprefs command for all users."""
+    keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text(
+        "Enter your username to look up your referrals:\n\n"
+        "Type /cancel or use the Cancel button to exit.",
+        reply_markup=reply_markup,
+    )
+    return LOOKUP_REFS_USERNAME
+
+
+def lookup_refs_username(update: Update, context: CallbackContext) -> int:
+    """Handle the username input for referral lookup."""
+    # Handle cancel button press
+    if update.callback_query and update.callback_query.data == "cancel":
+        update.callback_query.answer()
+        update.callback_query.edit_message_text("Operation cancelled.")
+        return ConversationHandler.END
+
+    username = update.message.text.strip() if update.message else ""
+
+    if not username:
+        keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text(
+            "Please enter a valid username.\n\n"
+            "Type /cancel or use the Cancel button to exit.",
+            reply_markup=reply_markup,
+        )
+        return LOOKUP_REFS_USERNAME
+
+    try:
+        # Initialize referral system
+        if config.GOOGLE_CREDS_JSON:
+            referral_system = ReferralSystem(
+                config.GOOGLE_CREDS_JSON, config.MASTER_SHEET_ID
+            )
+        else:
+            update.message.reply_text("❌ Google credentials not configured properly.")
+            return ConversationHandler.END
+
+        # Look up referrals
+        referrals = referral_system.lookup_referrals(username)
+
+        if not referrals:
+            update.message.reply_text(f"No referrals found for '{username}'.")
+        else:
+            # Format the response
+            response = f"📋 REFERRALS FOR {username.upper()}\n"
+            response += "=" * 30 + "\n\n"
+            
+            for i, referral in enumerate(referrals, 1):
+                response += f"{i}. {referral['referred_player']}\n"
+                response += f"   Hands: {referral['hands_played']}\n"
+                
+                if referral['bonus_received']:
+                    response += "   Status: ✅ Bonus received (250+ hands)\n"
+                else:
+                    remaining = max(0, 250 - referral['hands_played'])
+                    response += f"   Status: 🔄 {remaining} hands to bonus\n"
+                response += "\n"
+            
+            response += "=" * 30
+
+            update.message.reply_text(response)
+
+        return ConversationHandler.END
+
+    except Exception as e:
+        logger.error(f"Error looking up referrals: {e}")
+        update.message.reply_text(
+            "❌ An error occurred while looking up referrals. Please try again later."
+        )
+        return ConversationHandler.END
+
+
 def button_handler(update: Update, context: CallbackContext) -> int:
     """Handle button presses from the inline keyboard."""
     query = update.callback_query
