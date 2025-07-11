@@ -41,6 +41,9 @@ CONFIRMING_REVIVAL = 5
 # Referral conversation states
 REFERRAL_REFERRED, REFERRAL_HANDS, REFERRAL_REFERRER = range(6, 9)
 
+# Lookup referrals conversation state
+LOOKUP_REFS_USERNAME = 9
+
 ADMIN_USERS = config.ADMIN_USERS
 
 # Set up logging
@@ -222,6 +225,7 @@ def start(update: Update, context: CallbackContext) -> None:
         "👋 Welcome to the Poker Streak Tracker Bot!\n\n"
         "This bot tracks player streaks for poker games, awarding wheel spins at 7, 14, 21, etc. day milestones.\n\n"
         "Use /lookup to check your streak status.\n"
+        "Use /lookuprefs to see players you referred.\n"
         "Admins can use /referral to add referrals.\n"
         "You can use /cancel at any time to cancel the current operation."
     )
@@ -867,11 +871,24 @@ def main():
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
+    # Define lookup referrals conversation handler (all users)
+    lookup_refs_handler = ConversationHandler(
+        entry_points=[CommandHandler("lookuprefs", lookuprefs_command)],
+        states={
+            LOOKUP_REFS_USERNAME: [
+                MessageHandler(Filters.text & ~Filters.command, lookup_refs_username),
+                CallbackQueryHandler(lookup_refs_username),  # To handle cancel button
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
     # Add handlers
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(wheel_handler)
     dp.add_handler(lookup_handler)
     dp.add_handler(referral_handler)
+    dp.add_handler(lookup_refs_handler)
 
     # Add error handler
     dp.add_error_handler(error_handler)

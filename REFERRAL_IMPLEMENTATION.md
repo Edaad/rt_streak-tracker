@@ -1,7 +1,7 @@
 # Referral System Implementation
 
 ## Overview
-A simple and clean referral tracking system has been added to the Poker Streak Tracker Bot. This system allows admins to add referrals and automatically tracks when referred players reach the 250-hand milestone.
+A simple and clean referral tracking system has been added to the Poker Streak Tracker Bot. This system allows admins to add referrals, automatically tracks when referred players reach the 250-hand milestone, and allows users to look up their referrals.
 
 ## Features
 
@@ -13,6 +13,14 @@ A simple and clean referral tracking system has been added to the Poker Streak T
   2. Enter how many hands the referred player has played so far (0 if starting fresh)
   3. Enter the username of the player who made the referral
   4. Confirmation and save to Google Sheets
+
+### `/lookuprefs` Command (All Users)
+- **Usage**: `/lookuprefs`
+- **Access**: All users
+- **Flow**:
+  1. Enter your GG username
+  2. View organized list of all players you referred
+  3. See current hands played and bonus status for each referral
 
 ### Automatic Processing
 - **Integration**: Runs automatically during daily data processing
@@ -39,7 +47,7 @@ A simple and clean referral tracking system has been added to the Poker Streak T
 
 ## Usage Examples
 
-### Adding a Referral:
+### Adding a Referral (Admin Only):
 1. Admin types `/referral`
 2. Bot: "Enter the username of the player who was referred:"
 3. Admin: `new_player123`
@@ -48,6 +56,28 @@ A simple and clean referral tracking system has been added to the Poker Streak T
 6. Bot: "Enter the username of the player who referred new_player123:"
 7. Admin: `veteran_player`
 8. Bot: "✅ Successfully added referral: veteran_player referred new_player123"
+
+### Looking Up Your Referrals (All Users):
+1. User types `/lookuprefs`
+2. Bot: "Enter your GG username to see the players you referred:"
+3. User: `veteran_player`
+4. Bot displays:
+```
+📊 REFERRALS FOR VETERAN_PLAYER
+==============================
+
+🎯 new_player123
+   Hands: 150
+   Status: 100 hands to bonus
+
+🎯 another_player
+   Hands: 300
+   Status: 🎁 BONUS EARNED
+
+==============================
+Total Referrals: 2
+Bonuses Earned: 1
+```
 
 ### Daily Processing Output:
 ```
