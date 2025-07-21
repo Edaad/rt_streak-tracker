@@ -295,47 +295,139 @@ def referral_command(update: Update, context: CallbackContext) -> int:
 
 def add_referral_referred(update: Update, context: CallbackContext) -> int:
     """Handle the referred player username input."""
+    # Handle cancel button press
+    if update.callback_query and update.callback_query.data == "cancel":
+        update.callback_query.answer()
+        update.callback_query.edit_message_text("Operation cancelled.")
+        context.user_data.clear()
+        return ConversationHandler.END
+
+    # Check if user is admin
+    if update.effective_user.username not in ADMIN_USERS:
+        update.message.reply_text("❌ You don't have permission to use this command.")
+        return ConversationHandler.END
+
+    # Handle text input
+    if not update.message or not update.message.text:
+        keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.effective_message.reply_text(
+            "Please enter a valid username.\n\n"
+            "Type /cancel or use the Cancel button to exit.",
+            reply_markup=reply_markup,
+        )
+        return REFERRAL_REFERRED
+
     referred_player = update.message.text.strip()
 
     if not referred_player:
-        update.message.reply_text("Please enter a valid username.")
+        keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text(
+            "Please enter a valid username.\n\n"
+            "Type /cancel or use the Cancel button to exit.",
+            reply_markup=reply_markup,
+        )
         return REFERRAL_REFERRED
 
     # Store the referred player
     context.user_data["referred_player"] = referred_player
 
+    keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
-        f"Enter how many hands {referred_player} has played so far (enter 0 if starting fresh):"
+        f"Enter how many hands {referred_player} has played so far (enter 0 if starting fresh):\n\n"
+        "Type /cancel or use the Cancel button to exit.",
+        reply_markup=reply_markup,
     )
     return REFERRAL_HANDS
 
 
 def add_referral_hands(update: Update, context: CallbackContext) -> int:
     """Handle the hands played input."""
+    # Handle cancel button press
+    if update.callback_query and update.callback_query.data == "cancel":
+        update.callback_query.answer()
+        update.callback_query.edit_message_text("Operation cancelled.")
+        context.user_data.clear()
+        return ConversationHandler.END
+
+    # Handle text input
+    if not update.message or not update.message.text:
+        keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.effective_message.reply_text(
+            "Please enter a valid number (0 or greater).\n\n"
+            "Type /cancel or use the Cancel button to exit.",
+            reply_markup=reply_markup,
+        )
+        return REFERRAL_HANDS
+
     try:
         hands_played = int(update.message.text.strip())
         if hands_played < 0:
-            raise ValueError("Hands cannot be negative")
+            keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            update.message.reply_text(
+                "Please enter a valid number (0 or greater).\n\n"
+                "Type /cancel or use the Cancel button to exit.",
+                reply_markup=reply_markup,
+            )
+            return REFERRAL_HANDS
     except ValueError:
-        update.message.reply_text("Please enter a valid number (0 or greater).")
+        keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text(
+            "Please enter a valid number (0 or greater).\n\n"
+            "Type /cancel or use the Cancel button to exit.",
+            reply_markup=reply_markup,
+        )
         return REFERRAL_HANDS
 
     # Store the hands played
     context.user_data["hands_played"] = hands_played
     referred_player = context.user_data["referred_player"]
 
+    keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
-        f"Enter the username of the player who referred {referred_player}:"
+        f"Enter the username of the player who referred {referred_player}:\n\n"
+        "Type /cancel or use the Cancel button to exit.",
+        reply_markup=reply_markup,
     )
     return REFERRAL_REFERRER
 
 
 def add_referral_referrer(update: Update, context: CallbackContext) -> int:
     """Handle the referrer username input and save the referral."""
+    # Handle cancel button press
+    if update.callback_query and update.callback_query.data == "cancel":
+        update.callback_query.answer()
+        update.callback_query.edit_message_text("Operation cancelled.")
+        context.user_data.clear()
+        return ConversationHandler.END
+
+    # Handle text input
+    if not update.message or not update.message.text:
+        keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.effective_message.reply_text(
+            "Please enter a valid username.\n\n"
+            "Type /cancel or use the Cancel button to exit.",
+            reply_markup=reply_markup,
+        )
+        return REFERRAL_REFERRER
+
     referrer_player = update.message.text.strip()
 
     if not referrer_player:
-        update.message.reply_text("Please enter a valid username.")
+        keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text(
+            "Please enter a valid username.\n\n"
+            "Type /cancel or use the Cancel button to exit.",
+            reply_markup=reply_markup,
+        )
         return REFERRAL_REFERRER
 
     # Get stored data
@@ -344,8 +436,12 @@ def add_referral_referrer(update: Update, context: CallbackContext) -> int:
 
     # Check if player is referring themselves
     if referred_player.lower() == referrer_player.lower():
+        keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text(
-            "❌ A player cannot refer themselves. Please try again."
+            "❌ A player cannot refer themselves. Please try again.\n\n"
+            "Type /cancel or use the Cancel button to exit.",
+            reply_markup=reply_markup,
         )
         return REFERRAL_REFERRER
 
@@ -356,7 +452,7 @@ def add_referral_referrer(update: Update, context: CallbackContext) -> int:
                 config.GOOGLE_CREDS_JSON, config.MASTER_SHEET_ID
             )
         else:
-            update.message.reply_text("❌ Google credentials not configured properly.")
+            update.message.reply_text("❌ Error: Credentials not configured properly.")
             context.user_data.clear()
             return ConversationHandler.END
 
