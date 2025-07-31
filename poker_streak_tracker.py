@@ -69,44 +69,23 @@ class PokerStreakTracker:
             df_history.to_excel(self.history_file_path, index=False)
 
     def _generate_unique_wheel_times(self, count):
-        """Generate unique time slots between 7-9 PM in 10-minute increments."""
-        # Available time slots (7:00 PM to 8:50 PM in 10-minute increments)
-        available_slots = []
-        for hour in [19, 20]:
-            for minute in [0, 10, 20, 30, 40, 50]:
-                available_slots.append(f"{hour}:{minute:02d} PM")
-
-        # Ensure we have enough slots
-        if count > len(available_slots):
-            # If we need more slots than available, add some additional slots
-            for hour in [21]:  # Extend to 9 PM if needed
-                for minute in [0, 10, 20, 30, 40, 50]:
-                    available_slots.append(f"{hour}:{minute:02d} PM")
-
-            # If we still need more slots, add additional hours
-            if count > len(available_slots):
-                for hour in [18, 22]:  # Add 6 PM and 10 PM if needed
-                    for minute in [0, 10, 20, 30, 40, 50]:
-                        available_slots.append(f"{hour}:{minute:02d} PM")
-
-        # Randomly select the required number of unique slots
-        selected_slots = random.sample(
-            available_slots, min(count, len(available_slots))
-        )
-
-        # If we have more winners than available slots, reuse some slots
-        while len(selected_slots) < count:
-            extra_slot = random.choice(available_slots)
-            selected_slots.append(f"{extra_slot} (overflow)")
-
-        return selected_slots
+        """Generate sequential time slots starting at 7:00 in 10-minute increments."""
+        times = []
+        start_minutes = 19 * 60  # 7:00 PM in minutes
+        for i in range(count):
+            total_minutes = start_minutes + i * 10
+            hour = (total_minutes // 60) % 24
+            minute = total_minutes % 60
+            display_hour = hour % 12 or 12
+            times.append(f"{display_hour}:{minute:02d}")
+        return times
 
     def _get_wheel_number(self, streak):
-        """Get the wheel number based on streak milestone."""
-        for i, milestone in enumerate(self.wheel_milestones):
-            if streak == milestone:
-                return i + 1
-        return None
+        """Get the wheel number in a repeating 5-wheel cycle."""
+        if streak % 7 != 0 or streak < 7:
+            return None
+        # Cycle through 1–5
+        return ((streak // 7 - 1) % 5) + 1
 
     def _extract_player_data_from_complex_excel(self, file_path):
         """
@@ -483,7 +462,7 @@ class PokerStreakTracker:
                                     }
                                 )
                                 # Update player history with milestone message
-                                status_message = f"Hit {new_streak} day milestone and earned Wheel {wheel_number} spin"
+                                status_message = f"Hit their {new_streak}-day milestone and earned a Wheel {wheel_number} spin"
                                 self._update_player_history(
                                     username, status_message, new_streak
                                 )
@@ -594,7 +573,7 @@ class PokerStreakTracker:
                         wheel_number = winner["wheel_number"]
                         wheel_time = winner["wheel_time"]
 
-                        status_message = f"Hit {streak} day milestone and earned Wheel {wheel_number} spin scheduled for {wheel_time}"
+                        status_message = f"Hit their {streak}-day milestone and earned a Wheel {wheel_number} spin scheduled for {wheel_time}"
                         self._update_player_history(username, status_message, streak)
 
                 except Exception as e:
@@ -608,7 +587,7 @@ class PokerStreakTracker:
                         streak = winner["streak"]
                         wheel_number = winner["wheel_number"]
 
-                        status_message = f"Hit {streak} day milestone and earned Wheel {wheel_number} spin (time TBD)"
+                        status_message = f"Hit their {streak}-day milestone and earned a Wheel {wheel_number} spin (time TBD)"
                         self._update_player_history(username, status_message, streak)
 
             # Save updated master file
@@ -620,7 +599,7 @@ class PokerStreakTracker:
                 print("==============================")
                 for winner in wheel_winners:
                     print(
-                        f"{winner['username']} hit {winner['streak']} day streak, their Wheel {winner['wheel_number']} spin will be at {winner['wheel_time']} today"
+                        f"{winner['username']}: You hit your {winner['streak']}-day streak today! Your Wheel {winner['wheel_number']} spin will be at {winner['wheel_time']} PM EST (GMT-4)."
                     )
                 print("==============================\n")
 
