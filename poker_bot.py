@@ -434,7 +434,7 @@ def add_referral_referrer(update: Update, context: CallbackContext) -> int:
     referred_player = context.user_data["referred_player"]
     hands_played = context.user_data["hands_played"]
 
-    # Check if player is referring themselves
+    # Check if player is referring themselves - triggering new heroku deployment
     if referred_player.lower() == referrer_player.lower():
         keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
