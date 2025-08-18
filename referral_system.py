@@ -60,22 +60,26 @@ class ReferralSystem:
             )
 
     def save_referrals_data(self, df):
-        """Save referrals data to Google Sheets."""
+        """Save referrals data to Google Sheets using batch operations."""
         try:
             # Clear existing data
             self.referrals_worksheet.clear()
 
-            # Add headers
-            headers = ["ReferredPlayer", "HandsPlayed", "ReferrerPlayer"]
-            self.referrals_worksheet.insert_row(headers, 1)
-
-            # Add data
+            # Prepare data for batch update
             if not df.empty:
-                data = df.values.tolist()
-                for i, row in enumerate(data, start=2):
-                    self.referrals_worksheet.insert_row(row, i)
+                # Convert DataFrame to list of lists
+                headers = ["ReferredPlayer", "HandsPlayed", "ReferrerPlayer"]
+                data = [headers] + df.values.tolist()
+                
+                # Single batch update instead of row-by-row
+                self.referrals_worksheet.update('A1', data)
+            else:
+                # Just add headers
+                headers = ["ReferredPlayer", "HandsPlayed", "ReferrerPlayer"]
+                self.referrals_worksheet.update('A1', [headers])
         except Exception as e:
             print(f"Error saving referrals data: {e}")
+            raise e
 
     def add_referral(self, referred_player, hands_played, referrer_player):
         """Add a new referral to the system."""
