@@ -70,13 +70,13 @@ class ReferralSystem:
                 # Convert DataFrame to list of lists
                 headers = ["ReferredPlayer", "HandsPlayed", "ReferrerPlayer"]
                 data = [headers] + df.values.tolist()
-                
+
                 # Single batch update instead of row-by-row
-                self.referrals_worksheet.update('A1', data)
+                self.referrals_worksheet.update("A1", data)
             else:
                 # Just add headers
                 headers = ["ReferredPlayer", "HandsPlayed", "ReferrerPlayer"]
-                self.referrals_worksheet.update('A1', [headers])
+                self.referrals_worksheet.update("A1", [headers])
         except Exception as e:
             print(f"Error saving referrals data: {e}")
             raise e
@@ -163,10 +163,12 @@ class ReferralSystem:
         referrals = []
         for _, row in referrer_referrals.iterrows():
             hands_played = int(row["HandsPlayed"])
-            referrals.append({
-                "referred_player": row["ReferredPlayer"],
-                "hands_played": hands_played,
-                "bonus_received": hands_played >= 250
-            })
+            referrals.append(
+                {
+                    "referred_player": row["ReferredPlayer"],
+                    "hands_played": hands_played,
+                    "bonus_received": hands_played >= 250,
+                }
+            )
 
         return referrals

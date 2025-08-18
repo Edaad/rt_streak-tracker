@@ -109,18 +109,18 @@ class GoogleSheetsHelper:
         try:
             # Clear the sheet
             self.master_sheet.clear()
-            
+
             # Prepare data for batch update
             if not df.empty:
                 # Convert DataFrame to list of lists for batch update
                 headers = df.columns.tolist()
                 data = [headers] + df.values.tolist()
-                
+
                 # Single batch update instead of row-by-row
-                self.master_sheet.update('A1', data)
+                self.master_sheet.update("A1", data)
             else:
                 # Just add headers
-                self.master_sheet.update('A1', [['Username', 'Streak']])
+                self.master_sheet.update("A1", [["Username", "Streak"]])
         except Exception as e:
             print(f"Error saving master data: {e}")
             raise e
@@ -130,19 +130,25 @@ class GoogleSheetsHelper:
         try:
             # Clear the sheet
             self.history_sheet.clear()
-            
+
             # Prepare data for batch update
             if not df.empty:
                 # Convert DataFrame to list of lists for batch update
                 headers = df.columns.tolist()
                 data = [headers] + df.values.tolist()
-                
+
                 # Single batch update instead of row-by-row
-                self.history_sheet.update('A1', data)
+                self.history_sheet.update("A1", data)
             else:
                 # Just add headers
-                headers = ["Username", "LastUpdate", "UpdateDate", "CurrentStreak", "HighestStreak"]
-                self.history_sheet.update('A1', [headers])
+                headers = [
+                    "Username",
+                    "LastUpdate",
+                    "UpdateDate",
+                    "CurrentStreak",
+                    "HighestStreak",
+                ]
+                self.history_sheet.update("A1", [headers])
         except Exception as e:
             print(f"Error saving history data: {e}")
             raise e
@@ -180,18 +186,24 @@ class GoogleSheetsAdapter:
 
             # Upload to sheets with delays and retry logic to prevent rate limiting
             print("Syncing master data to Google Sheets...")
-            safe_sheets_operation(lambda: self.sheets_helper.save_master_data(master_df))
+            safe_sheets_operation(
+                lambda: self.sheets_helper.save_master_data(master_df)
+            )
             time.sleep(1)  # 1 second delay between operations
-            
+
             print("Syncing history data to Google Sheets...")
-            safe_sheets_operation(lambda: self.sheets_helper.save_history_data(history_df))
+            safe_sheets_operation(
+                lambda: self.sheets_helper.save_history_data(history_df)
+            )
             time.sleep(1)  # Another delay
-            
+
             print("Data sync completed successfully.")
         except Exception as e:
             if "429" in str(e) or "RATE_LIMIT_EXCEEDED" in str(e):
                 print("Rate limit exceeded. Please wait 1 minute before trying again.")
-                raise Exception("Google Sheets rate limit exceeded. Please wait 1 minute before processing again.")
+                raise Exception(
+                    "Google Sheets rate limit exceeded. Please wait 1 minute before processing again."
+                )
             else:
                 raise e
 
@@ -229,12 +241,20 @@ def safe_sheets_operation(operation_func, max_retries=3):
         try:
             return operation_func()
         except Exception as e:
-            if "429" in str(e) or "RATE_LIMIT_EXCEEDED" in str(e) or "rate limit" in str(e).lower():
-                wait_time = (2 ** attempt) * 1  # Exponential backoff: 1s, 2s, 4s
-                print(f"Rate limit hit, waiting {wait_time} seconds... (attempt {attempt + 1}/{max_retries})")
+            if (
+                "429" in str(e)
+                or "RATE_LIMIT_EXCEEDED" in str(e)
+                or "rate limit" in str(e).lower()
+            ):
+                wait_time = (2**attempt) * 1  # Exponential backoff: 1s, 2s, 4s
+                print(
+                    f"Rate limit hit, waiting {wait_time} seconds... (attempt {attempt + 1}/{max_retries})"
+                )
                 time.sleep(wait_time)
                 if attempt == max_retries - 1:
-                    raise Exception("Google Sheets rate limit exceeded after multiple retries. Please wait 1 minute.")
+                    raise Exception(
+                        "Google Sheets rate limit exceeded after multiple retries. Please wait 1 minute."
+                    )
             else:
                 raise e
     return None
@@ -764,9 +784,10 @@ def process_file(update: Update, context: CallbackContext) -> int:
             if "rate limit" in str(sync_error).lower() or "429" in str(sync_error):
                 # Delete the processing message
                 context.bot.delete_message(
-                    chat_id=update.effective_chat.id, message_id=processing_msg.message_id
+                    chat_id=update.effective_chat.id,
+                    message_id=processing_msg.message_id,
                 )
-                
+
                 update.message.reply_text(
                     "⏳ Data processed successfully but rate limit reached when saving to Google Sheets.\n\n"
                     "Please wait 1 minute before processing another file. The data has been processed "
@@ -797,9 +818,13 @@ def process_file(update: Update, context: CallbackContext) -> int:
 
     except Exception as e:
         logger.error(f"Error processing file: {str(e)}", exc_info=True)
-        
+
         # Better error handling for rate limits
-        if "429" in str(e) or "RATE_LIMIT_EXCEEDED" in str(e) or "rate limit" in str(e).lower():
+        if (
+            "429" in str(e)
+            or "RATE_LIMIT_EXCEEDED" in str(e)
+            or "rate limit" in str(e).lower()
+        ):
             update.message.reply_text(
                 "⏳ Google Sheets rate limit reached!\n\n"
                 "This happens when processing large datasets. Please wait 1 minute before "
@@ -810,7 +835,7 @@ def process_file(update: Update, context: CallbackContext) -> int:
             update.message.reply_text(f"❌ Error processing file: {str(e)}")
 
         # Clean up temp file
-        if 'temp_file' in locals() and os.path.exists(temp_file):
+        if "temp_file" in locals() and os.path.exists(temp_file):
             os.remove(temp_file)
 
 
