@@ -1,6 +1,7 @@
 import logging
 import os
 import tempfile
+import time
 from datetime import datetime
 import pandas as pd
 import random
@@ -104,34 +105,53 @@ class GoogleSheetsHelper:
         return pd.DataFrame(records)
 
     def save_master_data(self, df):
-        """Save pandas DataFrame to master sheet"""
-        # Clear the sheet except for header
-        self.master_sheet.resize(rows=1)
-        # Update with new data
-        if not df.empty:
-            self.master_sheet.update([df.columns.values.tolist()] + df.values.tolist())
-        else:
-            self.master_sheet.update([["Username", "Streak"]])
+        """Save pandas DataFrame to master sheet using batch operations"""
+        try:
+            # Clear the sheet
+            self.master_sheet.clear()
+
+            # Prepare data for batch update
+            if not df.empty:
+                # Convert DataFrame to list of lists for batch update
+                headers = df.columns.tolist()
+                data = [headers] + df.values.tolist()
+
+                # Single batch update instead of row-by-row
+                self.master_sheet.update("A1", data)
+            else:
+                # Just add headers
+                self.master_sheet.update("A1", [["Username", "Streak"]])
+        except Exception as e:
+            print(f"Error saving master data: {e}")
+            raise e
 
     def save_history_data(self, df):
-        """Save pandas DataFrame to history sheet"""
-        # Clear the sheet except for header
-        self.history_sheet.resize(rows=1)
-        # Update with new data
-        if not df.empty:
-            self.history_sheet.update([df.columns.values.tolist()] + df.values.tolist())
-        else:
-            self.history_sheet.update(
-                [
-                    [
-                        "Username",
-                        "LastUpdate",
-                        "UpdateDate",
-                        "CurrentStreak",
-                        "HighestStreak",
-                    ]
+        """Save pandas DataFrame to history sheet using batch operations"""
+        try:
+            # Clear the sheet
+            self.history_sheet.clear()
+
+            # Prepare data for batch update
+            if not df.empty:
+                # Convert DataFrame to list of lists for batch update
+                headers = df.columns.tolist()
+                data = [headers] + df.values.tolist()
+
+                # Single batch update instead of row-by-row
+                self.history_sheet.update("A1", data)
+            else:
+                # Just add headers
+                headers = [
+                    "Username",
+                    "LastUpdate",
+                    "UpdateDate",
+                    "CurrentStreak",
+                    "HighestStreak",
                 ]
-            )
+                self.history_sheet.update("A1", [headers])
+        except Exception as e:
+            print(f"Error saving history data: {e}")
+            raise e
 
 
 # Sheets Adapter for PokerStreakTracker
@@ -158,14 +178,34 @@ class GoogleSheetsAdapter:
         history_df.to_excel(self.history_file_path, index=False)
 
     def sync_to_sheets(self):
-        """Upload data from local Excel files to Google Sheets"""
-        # Read local files
-        master_df = pd.read_excel(self.master_file_path)
-        history_df = pd.read_excel(self.history_file_path)
+        """Upload data from local Excel files to Google Sheets with rate limiting"""
+        try:
+            # Read local files
+            master_df = pd.read_excel(self.master_file_path)
+            history_df = pd.read_excel(self.history_file_path)
 
-        # Upload to sheets
-        self.sheets_helper.save_master_data(master_df)
-        self.sheets_helper.save_history_data(history_df)
+            # Upload to sheets with delays and retry logic to prevent rate limiting
+            print("Syncing master data to Google Sheets...")
+            safe_sheets_operation(
+                lambda: self.sheets_helper.save_master_data(master_df)
+            )
+            time.sleep(1)  # 1 second delay between operations
+
+            print("Syncing history data to Google Sheets...")
+            safe_sheets_operation(
+                lambda: self.sheets_helper.save_history_data(history_df)
+            )
+            time.sleep(1)  # Another delay
+
+            print("Data sync completed successfully.")
+        except Exception as e:
+            if "429" in str(e) or "RATE_LIMIT_EXCEEDED" in str(e):
+                print("Rate limit exceeded. Please wait 1 minute before trying again.")
+                raise Exception(
+                    "Google Sheets rate limit exceeded. Please wait 1 minute before processing again."
+                )
+            else:
+                raise e
 
     def get_tracker(self, hands_threshold=100):
         """Create a PokerStreakTracker instance with local files"""
@@ -192,6 +232,32 @@ class OutputCapture:
     def clear(self):
         self.buffer = []
         self.output = ""
+
+
+# Retry mechanism for Google Sheets operations
+def safe_sheets_operation(operation_func, max_retries=3):
+    """Safely execute sheets operations with retry logic for rate limits"""
+    for attempt in range(max_retries):
+        try:
+            return operation_func()
+        except Exception as e:
+            if (
+                "429" in str(e)
+                or "RATE_LIMIT_EXCEEDED" in str(e)
+                or "rate limit" in str(e).lower()
+            ):
+                wait_time = (2**attempt) * 1  # Exponential backoff: 1s, 2s, 4s
+                print(
+                    f"Rate limit hit, waiting {wait_time} seconds... (attempt {attempt + 1}/{max_retries})"
+                )
+                time.sleep(wait_time)
+                if attempt == max_retries - 1:
+                    raise Exception(
+                        "Google Sheets rate limit exceeded after multiple retries. Please wait 1 minute."
+                    )
+            else:
+                raise e
+    return None
 
 
 # Function to split long messages for Telegram (max 4096 chars)
@@ -434,7 +500,7 @@ def add_referral_referrer(update: Update, context: CallbackContext) -> int:
     referred_player = context.user_data["referred_player"]
     hands_played = context.user_data["hands_played"]
 
-    # Check if player is referring themselves
+    # Check if player is referring themselves - triggering new heroku deployment
     if referred_player.lower() == referrer_player.lower():
         keyboard = [[InlineKeyboardButton("Cancel", callback_data="cancel")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -711,8 +777,25 @@ def process_file(update: Update, context: CallbackContext) -> int:
         # Get the captured output
         output = output_capture.get_output()
 
-        # Sync changes back to Google Sheets
-        sheets_adapter.sync_to_sheets()
+        # Sync changes back to Google Sheets with rate limiting protection
+        try:
+            sheets_adapter.sync_to_sheets()
+        except Exception as sync_error:
+            if "rate limit" in str(sync_error).lower() or "429" in str(sync_error):
+                # Delete the processing message
+                context.bot.delete_message(
+                    chat_id=update.effective_chat.id,
+                    message_id=processing_msg.message_id,
+                )
+
+                update.message.reply_text(
+                    "⏳ Data processed successfully but rate limit reached when saving to Google Sheets.\n\n"
+                    "Please wait 1 minute before processing another file. The data has been processed "
+                    "locally and will be synced automatically when the rate limit resets."
+                )
+                return ConversationHandler.END
+            else:
+                raise sync_error
 
         # Delete the processing message
         context.bot.delete_message(
@@ -735,9 +818,25 @@ def process_file(update: Update, context: CallbackContext) -> int:
 
     except Exception as e:
         logger.error(f"Error processing file: {str(e)}", exc_info=True)
-        update.message.reply_text(f"❌ Error processing file: {str(e)}")
 
-    return ConversationHandler.END
+        # Better error handling for rate limits
+        if (
+            "429" in str(e)
+            or "RATE_LIMIT_EXCEEDED" in str(e)
+            or "rate limit" in str(e).lower()
+        ):
+            update.message.reply_text(
+                "⏳ Google Sheets rate limit reached!\n\n"
+                "This happens when processing large datasets. Please wait 1 minute before "
+                "processing another file.\n\n"
+                "💡 Tip: Try processing smaller files or wait between uploads to avoid this issue."
+            )
+        else:
+            update.message.reply_text(f"❌ Error processing file: {str(e)}")
+
+        # Clean up temp file
+        if "temp_file" in locals() and os.path.exists(temp_file):
+            os.remove(temp_file)
 
 
 def lookup_player(update: Update, context: CallbackContext) -> int:

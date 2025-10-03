@@ -102,7 +102,7 @@ class ReferralSystem:
         return df
 
     def save_referrals_data(self, df):
-        """Save referrals data to Google Sheets in canonical schema/order."""
+        """Save referrals data to Google Sheets."""
         try:
             # Ensure correct columns/order
             if not set(self.headers).issubset(set(df.columns)):
@@ -113,15 +113,19 @@ class ReferralSystem:
 
             # Clear existing data and write headers + rows
             self.referrals_worksheet.clear()
-            self.referrals_worksheet.insert_row(self.headers, 1)
 
+            # Add headers
+            headers = ["ReferredPlayer", "HandsPlayed", "ReferrerPlayer"]
+            self.referrals_worksheet.insert_row(headers, 1)
+
+            # Add data
             if not df.empty:
                 data = df.values.tolist()
-                # Bulk update for performance
-                cell_range = f"A2:E{len(data)+1}"
-                self.referrals_worksheet.update(cell_range, data)
+                for i, row in enumerate(data, start=2):
+                    self.referrals_worksheet.insert_row(row, i)
         except Exception as e:
             print(f"Error saving referrals data: {e}")
+            raise e
 
     def add_referral(self, referred_player, hands_played, referrer_player):
         """Add a new referral to the system."""
@@ -213,10 +217,12 @@ class ReferralSystem:
         referrals = []
         for _, row in referrer_referrals.iterrows():
             hands_played = int(row["HandsPlayed"])
-            referrals.append({
-                "referred_player": row["ReferredPlayer"],
-                "hands_played": hands_played,
-                "bonus_received": hands_played >= 250
-            })
+            referrals.append(
+                {
+                    "referred_player": row["ReferredPlayer"],
+                    "hands_played": hands_played,
+                    "bonus_received": hands_played >= 250,
+                }
+            )
 
         return referrals
