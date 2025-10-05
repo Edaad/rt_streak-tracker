@@ -102,7 +102,10 @@ class ReferralSystem:
         return df
 
     def save_referrals_data(self, df):
-        """Save referrals data to Google Sheets."""
+        """Save referrals data to Google Sheets in canonical schema/order.
+
+        Uses a single bulk update to minimize API calls and avoid rate limits.
+        """
         try:
             # Ensure correct columns/order
             if not set(self.headers).issubset(set(df.columns)):
@@ -111,20 +114,21 @@ class ReferralSystem:
                         df[col] = ""
             df = df.reindex(columns=self.headers)
 
-            # Clear existing data and write headers + rows
-            self.referrals_worksheet.clear()
-
-            # Add headers
-            headers = ["ReferredPlayer", "HandsPlayed", "ReferrerPlayer"]
-            self.referrals_worksheet.insert_row(headers, 1)
-
-            # Add data
+            # Prepare values including header row
+            values = [self.headers]
             if not df.empty:
-                data = df.values.tolist()
-                for i, row in enumerate(data, start=2):
-                    self.referrals_worksheet.insert_row(row, i)
+                values.extend(df.astype(object).where(pd.notnull(df), "").values.tolist())
+
+            # Clear then write everything in a single update
+            self.referrals_worksheet.clear()
+            end_row = len(values)
+            end_col = len(self.headers)
+            end_col_letter = chr(ord('A') + end_col - 1)
+            rng = f"A1:{end_col_letter}{end_row if end_row > 0 else 1}"
+            self.referrals_worksheet.update(rng, values)
         except Exception as e:
             print(f"Error saving referrals data: {e}")
+            # Surface the exception so the caller can decide how to notify the user
             raise e
 
     def add_referral(self, referred_player, hands_played, referrer_player):
